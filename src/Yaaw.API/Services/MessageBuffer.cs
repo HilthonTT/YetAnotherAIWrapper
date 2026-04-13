@@ -80,7 +80,9 @@ public sealed class MessageBuffer : IAsyncDisposable
             : await _flushLock.WaitAsync(0).ConfigureAwait(false);
 
         if (!acquired)
+        {
             return; // Another flush is in progress; skip (only valid for non-dispose callers).
+        }
 
         try
         {
@@ -103,7 +105,9 @@ public sealed class MessageBuffer : IAsyncDisposable
         }
 
         if (fragmentsToFlush.Count == 0)
+        {
             return;
+        }
 
         _logger.LogInformation(
             "Flushing {Count} fragments for conversation {ConversationId} (first id: {MessageId})",
@@ -155,7 +159,9 @@ public sealed class MessageBuffer : IAsyncDisposable
         int totalLength = 0;
 
         for (int i = 0; i < fragments.Count; i++)
+        {
             totalLength += fragments[i].Text.Length;
+        }
 
         string combined = string.Create(totalLength, fragments, static (span, frags) =>
         {
@@ -180,7 +186,9 @@ public sealed class MessageBuffer : IAsyncDisposable
     {
         // Guard against double-dispose.
         if (Interlocked.Exchange(ref _draining, 1) != 0)
+        {
             return;
+        }
 
         // Stop the timer loop cleanly before doing the final flush.
         await _timerCts.CancelAsync().ConfigureAwait(false);

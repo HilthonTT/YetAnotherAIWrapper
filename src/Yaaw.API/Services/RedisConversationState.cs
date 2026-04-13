@@ -64,7 +64,9 @@ public sealed class RedisConversationState : IAsyncDisposable
         }
 
         if (fragment is null)
+        {
             return;
+        }
 
         FanOut(conversationId, fragment);
     }
@@ -72,7 +74,9 @@ public sealed class RedisConversationState : IAsyncDisposable
     private void FanOut(Guid conversationId, ClientMessageFragmentDto fragment)
     {
         if (!_localSubscribers.TryGetValue(conversationId, out var list))
+        {
             return;
+        }
 
         Action<ClientMessageFragmentDto>[] snapshot;
         lock (list)
@@ -82,7 +86,10 @@ public sealed class RedisConversationState : IAsyncDisposable
 
         foreach (var callback in snapshot)
         {
-            try { callback(fragment); }
+            try 
+            { 
+                callback(fragment);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Local subscriber threw for conversation {ConversationId}", conversationId);
@@ -110,7 +117,9 @@ public sealed class RedisConversationState : IAsyncDisposable
             // Only enqueue IDs strictly greater than the highest ID seen so far.
             // highWaterMark is updated after the backlog is consumed.
             if (highWaterMark is not null && fragment.Id <= highWaterMark)
+            {
                 return;
+            }
 
             _logger.LogDebug("Fan-out fragment {FragmentId} for {ConversationId}", fragment.Id, conversationId);
             channel.Writer.TryWrite(fragment);
@@ -128,13 +137,17 @@ public sealed class RedisConversationState : IAsyncDisposable
             {
                 var fragment = JsonSerializer.Deserialize<ClientMessageFragmentDto>((ReadOnlySpan<byte>)values[i]!);
                 if (fragment is null)
+                {
                     continue;
+                }
 
                 if (lastMessageId is null || fragment.Id > lastMessageId)
                 {
                     yield return fragment;
                     if (maxBacklogId is null || fragment.Id > maxBacklogId)
+                    {
                         maxBacklogId = fragment.Id;
+                    }
                 }
             }
 
@@ -251,13 +264,17 @@ public sealed class RedisConversationState : IAsyncDisposable
     private void RemoveLocalSubscriber(Guid conversationId, Action<ClientMessageFragmentDto> callback)
     {
         if (!_localSubscribers.TryGetValue(conversationId, out var list))
+        {
             return;
+        }
 
         lock (list)
         {
             list.Remove(callback);
             if (list.Count == 0)
+            {
                 _localSubscribers.TryRemove(conversationId, out _);
+            }
         }
     }
 }

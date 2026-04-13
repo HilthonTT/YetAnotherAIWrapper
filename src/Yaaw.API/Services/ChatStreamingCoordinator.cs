@@ -94,8 +94,14 @@ public sealed class ChatStreamingCoordinator(
 
     private async Task TryAsync(Func<Task> action, [System.Runtime.CompilerServices.CallerMemberName] string caller = "")
     {
-        try { await action(); }
-        catch (Exception ex) { logger.LogError(ex, "Cleanup step failed in {Caller}", caller); }
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) 
+        {
+            logger.LogError(ex, "Cleanup step failed in {Caller}", caller);
+        }
     }
 
     private async Task<List<ChatMessage>> SavePromptAndGetMessageHistoryAsync(Guid conversationId, string text)
