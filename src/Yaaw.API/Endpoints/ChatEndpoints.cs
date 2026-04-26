@@ -22,14 +22,14 @@ public static class ChatEndpoints
             AppDbContext dbContext,
             CancellationToken cancellationToken) =>
         {
-            List<Conversation> conversations = await dbContext.Conversations
+            List<ConversationDto> conversations = await dbContext.Conversations
                 .Include(c => c.Messages)
+                .Select(c => c.ToDto())
                 .ToListAsync(cancellationToken);
 
-            List<ConversationDto> mappedConversations = conversations.Select(c => c.ToDto()).ToList();
             var response = new CollectionResponse<ConversationDto>()
             {
-                Items = mappedConversations,
+                Items = conversations,
             };
 
             return Results.Ok(response);
@@ -88,6 +88,27 @@ public static class ChatEndpoints
             await streamingCoordinator.AddStreamingMessage(id, promptDto.Text);
 
             return Results.Ok();
+        })
+        .WithTags(Tags.Chat);
+
+        group.MapPatch("/{id:guid}", async (
+            Guid id,
+            RenameConversationDto renameDto,
+            AppDbContext dbContext,
+            CancellationToken cancellationToken) =>
+        {
+            Conversation? conversation = await dbContext.Conversations
+                .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+
+            if (conversation is null)
+            {
+                return Results.NotFound();
+            }
+
+            conversation.Name = renameDto.Name;
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return Results.Ok(conversation.ToDto());
         })
         .WithTags(Tags.Chat);
 

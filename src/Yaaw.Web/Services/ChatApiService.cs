@@ -36,6 +36,14 @@ public sealed class ChatApiService(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task RenameConversationAsync(Guid conversationId, string name, CancellationToken ct = default)
+    {
+        var response = await httpClient.PatchAsJsonAsync(
+            $"/api/chat/{conversationId}", new RenameConversationDto(name), ct);
+
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task DeleteConversationAsync(Guid conversationId, CancellationToken ct = default)
     {
         var response = await httpClient.DeleteAsync(
