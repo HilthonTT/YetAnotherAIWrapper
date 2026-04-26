@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Yaaw.API.Database;
 using Yaaw.API.DTOs.Messages;
 using Yaaw.API.Entities;
+using System.Runtime.CompilerServices;
 
 namespace Yaaw.API.Services;
 
@@ -18,12 +19,51 @@ public sealed class ChatStreamingCoordinator(
 
     public async Task AddStreamingMessage(Guid conversationId, string text)
     {
-        var messages = await SavePromptAndGetMessageHistoryAsync(conversationId, text);
+        List<ChatMessage> messages = await SavePromptAndGetMessageHistoryAsync(conversationId, text);
+
+        if (messages.Count == 0)
+        {
+            logger.LogWarning("No messages for {ConversationId}, skipping streaming", conversationId);
+            return;
+        }
 
         _ = Task.Run(() => StreamReplyAsync(conversationId, messages))
             .ContinueWith(
                 t => logger.LogCritical(t.Exception, "Unhandled fault in StreamReplyAsync for {ConversationId}", conversationId),
                 TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    public async IAsyncEnumerable<ClientMessageFragmentDto> StreamFragments(
+        Guid conversationId, 
+        Guid? lastMessageId,
+        Guid? lastDeliveredFragment,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Getting message stream for conversation {ConversationId}, {LastMessageId}", 
+                conversationId, 
+                lastMessageId);
+        }
+
+        var stream = conversationState.Subscribe(conversationId, lastMessageId, cancellationToken);
+
+        await foreach (var fragment in stream.WithCancellation(cancellationToken))
+        {
+            // Use lastMessageId to filter out fragments from an already delivered message,
+            // while using lastDeliveredFragment (a sortable GUID) for ordering and de-duping.
+            if (lastDeliveredFragment is null || fragment.FragmentId > lastDeliveredFragment)
+            {
+                lastDeliveredFragment = fragment.FragmentId;
+            }
+            else
+            {
+                continue;
+            }
+
+            yield return fragment;
+        }
     }
 
     private async Task StreamReplyAsync(Guid conversationId, List<ChatMessage> messages)
@@ -109,12 +149,8 @@ public sealed class ChatStreamingCoordinator(
         await using var scope = serviceScopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        // Include Messages so the history is actually populated.
-        var conversation = await dbContext.Conversations
-            .Include(c => c.Messages)
-            .FirstOrDefaultAsync(c => c.Id == conversationId);
-
-        if (conversation is null)
+        bool exists = await dbContext.Conversations.AnyAsync(c => c.Id == conversationId);
+        if (!exists)
         {
             return [];
         }
@@ -122,20 +158,24 @@ public sealed class ChatStreamingCoordinator(
         var userMessage = new ConversationMessage
         {
             Id = Guid.CreateVersion7(),
-            ConversationId = conversation.Id,
+            ConversationId = conversationId,
             Role = ChatRole.User.Value,
             Text = text,
         };
 
-        conversation.Messages.Add(userMessage);
+        dbContext.Add(userMessage);
         await dbContext.SaveChangesAsync();
 
-        // Publish the user's fragment so subscribers see it immediately.
         await conversationState.PublishFragmentAsync(
             conversationId,
             new ClientMessageFragmentDto(userMessage.Id, ChatRole.User.Value, text, Guid.CreateVersion7(), IsFinal: true));
 
-        return conversation.Messages
+        List<ConversationMessage> history = await dbContext.ConversationMessages
+            .Where(m => m.ConversationId == conversationId)
+            .OrderBy(m => m.Id)
+            .ToListAsync();
+
+        return history
             .Select(m => new ChatMessage(new(m.Role), m.Text))
             .ToList();
     }
@@ -145,17 +185,17 @@ public sealed class ChatStreamingCoordinator(
         await using var scope = serviceScopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var conversation = await dbContext.Conversations.FindAsync(conversationId);
-        if (conversation is null)
+        bool exists = await dbContext.Conversations.AnyAsync(c => c.Id == conversationId);
+        if (!exists)
         {
             logger.LogWarning("Conversation {ConversationId} not found when saving assistant message {MessageId}", conversationId, messageId);
             return;
         }
 
-        conversation.Messages.Add(new ConversationMessage
+        dbContext.Add(new ConversationMessage
         {
             Id = messageId,
-            ConversationId = conversation.Id,
+            ConversationId = conversationId,
             Role = ChatRole.Assistant.Value,
             Text = text,
         });

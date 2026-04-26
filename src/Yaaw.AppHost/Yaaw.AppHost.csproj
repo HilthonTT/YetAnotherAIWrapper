@@ -1,4 +1,4 @@
-﻿<Project Sdk="Aspire.AppHost.Sdk/13.1.1">
+﻿<Project Sdk="Aspire.AppHost.Sdk/13.2.4">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -9,11 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.1.1" />
-    <PackageReference Include="Aspire.Hosting.OpenAI" Version="13.1.1" />
-    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.1.1" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="13.1.1" />
-    <PackageReference Include="Aspire.Hosting.Yarp" Version="13.1.1" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.2.4" />
+    <PackageReference Include="Aspire.Hosting.OpenAI" Version="13.2.4" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.2.4" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="13.2.4" />
+    <PackageReference Include="Aspire.Hosting.Yarp" Version="13.2.4" />
     <PackageReference Include="CliWrap" Version="3.10.1" />
     <PackageReference Include="CommunityToolkit.Aspire.Hosting.Ollama" Version="13.1.1" />
   </ItemGroup>
