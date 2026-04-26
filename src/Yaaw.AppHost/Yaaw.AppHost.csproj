@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Yaaw.API\Yaaw.API.csproj" />
+    <ProjectReference Include="..\Yaaw.Web\Yaaw.Web.csproj" />
   </ItemGroup>
 
 </Project>

@@ -12,7 +12,9 @@ builder.AddNpgsqlDbContext<AppDbContext>("yaaw");
 builder.AddChatClient("llm");
 builder.AddRedisClient("cache");
 
-builder.Services.AddApiServices();
+builder.Services
+    .AddApiServices()
+    .AddRateLimiting();
 
 WebApplication app = builder.Build();
 
@@ -29,5 +31,7 @@ app.MapChatApi();
 app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
+
+app.UseRateLimiter();
 
 await app.RunAsync();

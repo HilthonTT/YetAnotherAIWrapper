@@ -29,12 +29,17 @@ var db = builder.AddPostgres("database")
 var cache = builder.AddRedis("cache")
     .WithRedisInsight();
 
-builder.AddProject<Projects.Yaaw_API>("yaaw-api")
+var api = builder.AddProject<Projects.Yaaw_API>("yaaw-api")
     .WithReference(model)
     .WaitFor(model)
     .WithReference(db)
     .WaitFor(db)
     .WithReference(cache)
     .WaitFor(cache);
+
+builder.AddProject<Projects.Yaaw_Web>("yaaw-web")
+    .WithReference(api)
+    .WaitFor(api)
+    .WithExternalHttpEndpoints();
 
 await builder.Build().RunAsync();
