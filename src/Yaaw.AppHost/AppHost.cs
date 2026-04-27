@@ -30,6 +30,9 @@ var cache = builder.AddRedis("cache")
     .WithRedisInsight();
 
 var api = builder.AddProject<Projects.Yaaw_API>("yaaw-api")
+    .WithSwaggerUI()
+    .WithScalar()
+    .WithReDoc()
     .WithReference(model)
     .WaitFor(model)
     .WithReference(db)
