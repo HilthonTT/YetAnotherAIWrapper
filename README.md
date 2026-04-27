@@ -133,7 +133,7 @@ Yaaw/
 
 ## Tech Stack
 
-- **Backend:** ASP.NET Core 9 Minimal APIs, EF Core, SignalR, FluentValidation
+- **Backend:** ASP.NET Core 10 Minimal APIs, EF Core, SignalR, FluentValidation
 - **Frontend:** Blazor Server, Tailwind CSS (CDN), Markdig
 - **Infrastructure:** .NET Aspire, PostgreSQL, Redis, Ollama, Docker
 - **LLM:** Microsoft Phi-4 (14B, Q4_K_M) via Ollama, with OpenAI fallback
