@@ -5,7 +5,7 @@ using Yaaw.API.DTOs.Messages;
 
 namespace Yaaw.API.Services;
 
-public sealed class MessageBuffer : IAsyncDisposable
+internal sealed class MessageBuffer : IAsyncDisposable
 {
     private readonly IDatabase _database;
     private readonly ISubscriber _subscriber;

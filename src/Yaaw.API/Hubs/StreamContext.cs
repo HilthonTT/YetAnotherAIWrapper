@@ -1,3 +1,3 @@
 ﻿namespace Yaaw.API.Hubs;
 
-public sealed record StreamContext(Guid? LastMessageId, Guid? LastFragmentId);
+internal sealed record StreamContext(Guid? LastMessageId, Guid? LastFragmentId);

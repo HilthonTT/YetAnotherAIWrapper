@@ -2,6 +2,7 @@ using Scalar.AspNetCore;
 using Yaaw.API;
 using Yaaw.API.Database;
 using Yaaw.API.Endpoints;
+using Yaaw.API.Middleware.RateLimiting;
 using Yaaw.API.Settings;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -15,7 +16,7 @@ builder.AddRedisClient("cache");
 
 builder.Services
     .AddApiServices()
-    .AddRateLimiting()
+    .AddRateLimiting(builder.Configuration)
     .AddErrorHandling();
 
 builder.AddCorsPolicy();
@@ -48,7 +49,7 @@ app.UseExceptionHandler();
 
 app.UseCors(CorsOptions.PolicyName);
 
-app.UseRateLimiter();
+app.UseRedisRateLimiting<SlidingWindowRateLimiter>();
 
 app.UseStatusCodePages();
 

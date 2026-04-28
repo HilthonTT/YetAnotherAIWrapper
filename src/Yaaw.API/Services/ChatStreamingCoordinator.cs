@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 
 namespace Yaaw.API.Services;
 
-public sealed class ChatStreamingCoordinator(
+internal sealed class ChatStreamingCoordinator(
     IChatClient chatClient,
     IServiceScopeFactory serviceScopeFactory,
     ILogger<ChatStreamingCoordinator> logger,

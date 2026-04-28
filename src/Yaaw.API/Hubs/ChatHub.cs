@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace Yaaw.API.Hubs;
 
-public sealed class ChatHub : Hub
+internal sealed class ChatHub : Hub
 {
     public async IAsyncEnumerable<ClientMessageFragmentDto> Stream(
         Guid id, 

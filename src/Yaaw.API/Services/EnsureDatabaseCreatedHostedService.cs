@@ -2,7 +2,7 @@
 
 namespace Yaaw.API.Services;
 
-public sealed class EnsureDatabaseCreatedHostedService(IServiceProvider serviceProvider) : BackgroundService
+internal sealed class EnsureDatabaseCreatedHostedService(IServiceProvider serviceProvider) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

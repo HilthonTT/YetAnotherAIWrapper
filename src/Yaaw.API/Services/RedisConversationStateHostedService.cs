@@ -1,6 +1,6 @@
 ﻿namespace Yaaw.API.Services;
 
-public sealed class RedisConversationStateHostedService(RedisConversationState state) : IHostedService
+internal sealed class RedisConversationStateHostedService(RedisConversationState state) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken) => state.StartAsync();
 

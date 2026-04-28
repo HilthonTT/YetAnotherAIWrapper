@@ -1,7 +1,7 @@
 using Yaaw.Web.Components;
 using Yaaw.Web.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
@@ -18,10 +18,10 @@ builder.Services.AddHttpClient<ChatApiService>(client =>
 builder.Services.AddScoped<ChatStreamService>();
 builder.Services.AddSingleton<MarkdownService>();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 app.MapDefaultEndpoints();
-.
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

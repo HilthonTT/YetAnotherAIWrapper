@@ -7,7 +7,7 @@ using Yaaw.API.DTOs.Messages;
 
 namespace Yaaw.API.Services;
 
-public sealed class RedisConversationState : IAsyncDisposable
+internal sealed class RedisConversationState : IAsyncDisposable
 {
     private readonly IDatabase _database;
     private readonly ISubscriber _subscriber;
@@ -27,8 +27,12 @@ public sealed class RedisConversationState : IAsyncDisposable
         ILogger<RedisConversationState> logger,
         ILoggerFactory loggerFactory)
     {
-        _database = connectionMultiplexer.GetDatabase();
-        _subscriber = connectionMultiplexer.GetSubscriber();
+        _database = connectionMultiplexer.GetDatabase()
+            ?? throw new InvalidOperationException("Failed to get Redis database instance.");
+
+        _subscriber = connectionMultiplexer.GetSubscriber()
+            ?? throw new InvalidOperationException("Failed to get Redis subscriber instance.");
+
         _logger = logger;
         _loggerFactory = loggerFactory;
         _patternChannel = RedisChannel.Pattern("conversation:*:channel");

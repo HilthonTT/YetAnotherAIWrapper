@@ -2,7 +2,7 @@
 
 namespace Yaaw.API.Services;
 
-public sealed class LinkService(LinkGenerator linkGenerator, IHttpContextAccessor httpContextAccessor)
+internal sealed class LinkService(LinkGenerator linkGenerator, IHttpContextAccessor httpContextAccessor)
 {
     private HttpContext HttpContext =>
         httpContextAccessor.HttpContext

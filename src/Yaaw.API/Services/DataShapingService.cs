@@ -5,7 +5,7 @@ using Yaaw.API.DTOs.Common;
 
 namespace Yaaw.API.Services;
 
-public sealed class DataShapingService
+internal sealed class DataShapingService
 {
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertiesCache = new();
 

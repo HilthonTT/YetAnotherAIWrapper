@@ -18,7 +18,7 @@
             </button>
         </div>
 
-        <div class="p-3">
+        <div class="p-3 space-y-2">
             <button @onclick="CreateNewConversation"
                     class="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-accent/10 text-accent
                            hover:bg-accent/20 transition-all duration-200 text-sm font-medium">
@@ -27,29 +27,93 @@
                 </svg>
                 New conversation
             </button>
+
+            <!-- Search -->
+            <div class="relative">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-surface-500 pointer-events-none"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+                </svg>
+                <input type="text"
+                       @bind="_searchText"
+                       @bind:event="oninput"
+                       @bind:after="OnSearchChangedAsync"
+                       placeholder="Search conversations..."
+                       class="w-full bg-surface-900 border border-surface-700/50 rounded-lg text-xs text-surface-200
+                              placeholder-surface-500 pl-8 pr-3 py-2 focus:outline-none focus:border-accent/40
+                              transition-colors duration-200" />
+            </div>
+
+            <!-- Sort -->
+            <select @bind="_sortField" @bind:after="OnSortChangedAsync"
+                    class="w-full bg-surface-900 border border-surface-700/50 rounded-lg text-xs text-surface-300
+                px-3 py-2 focus:outline-none focus:border-accent/40 transition-colors duration-200
+                appearance-none cursor-pointer">
+                <option value="id desc">Newest first</option>
+                <option value="id">Oldest first</option>
+                <option value="name">Name A–Z</option>
+                <option value="name desc">Name Z–A</option>
+            </select>
         </div>
 
         <nav class="flex-1 overflow-y-auto px-3 pb-4 space-y-1 scrollbar-thin">
             @foreach (var convo in _conversations)
             {
                 <div class="group relative">
-                    <button @onclick="() => SelectConversation(convo.Id)"
-                            class="@ConversationItemCss(convo.Id)">
-                        <svg class="w-4 h-4 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                        </svg>
-                        <span class="truncate">@convo.Name</span>
-                    </button>
-                    <button @onclick="() => DeleteConversation(convo.Id)"
-                            @onclick:stopPropagation="true"
-                            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover:opacity-100
-                                   hover:bg-red-500/20 hover:text-red-400 transition-all duration-150">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                    </button>
+                    @if (_renamingId == convo.Id)
+                    {
+                        <div class="flex items-center gap-1.5 px-2 py-1.5">
+                            <input @ref="_renameInputRef"
+                                   @bind="_renameText"
+                                   @onkeydown="HandleRenameKeyDown"
+                                   class="flex-1 bg-surface-800 border border-accent/40 rounded-md text-sm text-surface-100
+                                          px-2 py-1 focus:outline-none min-w-0" />
+                            <button @onclick="ConfirmRenameAsync"
+                                    class="p-1 rounded-md hover:bg-green-500/20 text-green-400 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </button>
+                            <button @onclick="CancelRename"
+                                    class="p-1 rounded-md hover:bg-red-500/20 text-red-400 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button @onclick="() => SelectConversation(convo.Id)"
+                                @ondblclick="() => StartRename(convo)"
+                                class="@ConversationItemCss(convo.Id)">
+                            <svg class="w-4 h-4 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                            </svg>
+                            <span class="truncate">@convo.Name</span>
+                        </button>
+                        <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5
+                                    opacity-0 group-hover:opacity-100 transition-all duration-150">
+                            <button @onclick="() => StartRename(convo)"
+                                    @onclick:stopPropagation="true"
+                                    class="p-1 rounded-md hover:bg-surface-700 hover:text-surface-200 text-surface-500 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+                                </svg>
+                            </button>
+                            <button @onclick="() => DeleteConversation(convo.Id)"
+                                    @onclick:stopPropagation="true"
+                                    class="p-1 rounded-md hover:bg-red-500/20 hover:text-red-400 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    }
                 </div>
             }
         </nav>
@@ -156,6 +220,16 @@
     private ElementReference _inputRef;
     private bool _shouldScrollToBottom;
 
+    // Search & sort
+    private string _searchText = "";
+    private string _sortField = "id desc";
+    private CancellationTokenSource? _searchDebounce;
+
+    // Rename
+    private Guid? _renamingId;
+    private string _renameText = "";
+    private ElementReference _renameInputRef;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadConversationsAsync();
@@ -167,6 +241,17 @@
         {
             _shouldScrollToBottom = false;
             await ScrollToBottomAsync();
+        }
+
+        if (_renamingId is not null)
+        {
+            try 
+            { 
+                await _renameInputRef.FocusAsync();
+            } 
+            catch
+            {
+            }
         }
     }
 
@@ -183,7 +268,8 @@
     {
         try
         {
-            _conversations = await Api.GetConversationsAsync();
+            string? search = string.IsNullOrWhiteSpace(_searchText) ? null : _searchText.Trim();
+            _conversations = await Api.GetConversationsAsync(search: search, sort: _sortField);
         }
         catch
         {
@@ -191,8 +277,33 @@
         }
     }
 
+    private async Task OnSearchChangedAsync()
+    {
+        _searchDebounce?.Cancel();
+        _searchDebounce = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(300, _searchDebounce.Token);
+            await LoadConversationsAsync();
+            StateHasChanged();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task OnSortChangedAsync()
+    {
+        await LoadConversationsAsync();
+        StateHasChanged();
+    }
+
     private async Task SelectConversation(Guid id)
     {
+        if (_renamingId is not null)
+        {
+            return;
+        }
+
         CancelActiveStream();
 
         _activeConversation = _conversations.FirstOrDefault(c => c.Id == id);
@@ -214,7 +325,6 @@
                     .ToList();
             }
 
-            // Pre-establish SignalR so SendMessage doesn't pay connection cost.
             _ = Stream.EnsureConnectedAsync();
         }
 
@@ -248,11 +358,69 @@
                 CancelActiveStream();
             }
 
+            if (_renamingId == id)
+            {
+                CancelRename();
+            }
+
             StateHasChanged();
         }
-        catch
+        catch { }
+    }
+
+    private void StartRename(ConversationDto convo)
+    {
+        _renamingId = convo.Id;
+        _renameText = convo.Name;
+    }
+
+    private void CancelRename()
+    {
+        _renamingId = null;
+        _renameText = "";
+    }
+
+    private async Task ConfirmRenameAsync()
+    {
+        if (_renamingId is null || string.IsNullOrWhiteSpace(_renameText))
         {
-            // Swallow — could show a toast later.
+            CancelRename();
+            return;
+        }
+
+        try
+        {
+            var updated = await Api.RenameConversationAsync(_renamingId.Value, _renameText.Trim());
+
+            if (updated is not null)
+            {
+                int index = _conversations.FindIndex(c => c.Id == _renamingId.Value);
+                if (index >= 0)
+                {
+                    _conversations[index] = updated;
+                }
+
+                if (_activeConversation?.Id == _renamingId.Value)
+                {
+                    _activeConversation = updated;
+                }
+            }
+        }
+        catch { }
+
+        CancelRename();
+        StateHasChanged();
+    }
+
+    private async Task HandleRenameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ConfirmRenameAsync();
+        }
+        else if (e.Key == "Escape")
+        {
+            CancelRename();
         }
     }
 
@@ -290,10 +458,8 @@
 
         try
         {
-            // 1. Ensure SignalR is connected FIRST.
             await Stream.EnsureConnectedAsync();
 
-            // 2. Start the subscription BEFORE triggering the prompt.
             _streamCts = new CancellationTokenSource();
             Guid? lastMessageId = _activeConversation.Messages.LastOrDefault()?.Id;
 
@@ -327,10 +493,8 @@
                 }
             });
 
-            // 3. Small yield to let the hub invocation start on the server.
             await Task.Delay(100);
 
-            // 4. NOW trigger the prompt — the subscriber is already listening.
             await Api.SendPromptAsync(_activeConversation.Id, text);
         }
         catch
@@ -347,8 +511,6 @@
     {
         if (fragment.Sender == "user")
         {
-            // The server echoes the user message — we already added it optimistically,
-            // so just update the ID.
             var existing = _messages.FirstOrDefault(m => m.Role == "user" && m.Text == fragment.Text);
             if (existing is not null)
             {
@@ -357,7 +519,6 @@
             return;
         }
 
-        // Assistant fragment.
         if (assistantMsg.Id == Guid.Empty)
         {
             assistantMsg.Id = fragment.Id;
@@ -371,7 +532,6 @@
             return;
         }
 
-        // "Generating reply..." is a placeholder — replace it on first real text.
         if (assistantMsg.IsPlaceholder && fragment.Text != "Generating reply...")
         {
             assistantMsg.IsPlaceholder = false;
@@ -416,6 +576,8 @@
 
     public async ValueTask DisposeAsync()
     {
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
         CancelActiveStream();
         await Stream.DisposeAsync();
     }

@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 
 namespace Yaaw.API.Services;
 
-public sealed class RedisCancellationManager : IAsyncDisposable
+internal sealed class RedisCancellationManager : IAsyncDisposable
 {
     private readonly ISubscriber _subscriber;
     private readonly ILogger<RedisCancellationManager> _logger;
@@ -14,7 +14,9 @@ public sealed class RedisCancellationManager : IAsyncDisposable
         IConnectionMultiplexer connectionMultiplexer,
         ILogger<RedisCancellationManager> logger)
     {
-        _subscriber = connectionMultiplexer.GetSubscriber();
+        _subscriber = connectionMultiplexer.GetSubscriber()
+            ?? throw new InvalidOperationException("Failed to get Redis subscriber instance.");
+
         _logger = logger;
         _subscriber.Subscribe(_channelName, OnCancellationMessage);
 

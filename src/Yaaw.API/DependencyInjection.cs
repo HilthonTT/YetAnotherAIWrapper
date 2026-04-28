@@ -1,10 +1,7 @@
 ﻿using CommunityToolkit.Aspire.OllamaSharp;
 using FluentValidation;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.AI;
 using System.Runtime.CompilerServices;
-using System.Threading.RateLimiting;
 using Yaaw.API.DTOs.Conversations;
 using Yaaw.API.Entities;
 using Yaaw.API.Extensions;
@@ -35,40 +32,7 @@ public static class DependencyInjection
 
         return builder;
     }
-
-    public static IServiceCollection AddRateLimiting(this IServiceCollection services)
-    {
-        services.AddRateLimiter(options =>
-        {
-            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.OnRejected = async (context, token) =>
-            {
-                if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retryAfter))
-                {
-                    context.HttpContext.Response.Headers.RetryAfter = $"{retryAfter.TotalSeconds}";
-                    ProblemDetailsFactory problemDetailsFactory = context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>();
-                    ProblemDetails problemDetails = problemDetailsFactory.CreateProblemDetails(
-                        context.HttpContext,
-                        StatusCodes.Status429TooManyRequests, "Too Many Requests",
-                        detail: $"Too many requests. Please try again after {retryAfter.TotalSeconds} seconds.");
-                    await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, token);
-                }
-            };
-
-            options.AddPolicy("default", context =>
-            {
-                return RateLimitPartition.GetFixedWindowLimiter("anonymous", _ =>
-                    new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 5,
-                        Window = TimeSpan.FromMinutes(1)
-                    });
-            });
-        });
-
-        return services;
-    }
-
+    
     public static IServiceCollection AddErrorHandling(this IServiceCollection services)
     {
         services.AddProblemDetails(options =>
@@ -88,6 +52,7 @@ public static class DependencyInjection
     {
         services.AddValidatorsFromAssemblyContaining<Program>();
 
+        services.AddControllers();
         services.AddHttpContextAccessor();
         services.AddOpenApi();
         services.AddSignalR();
