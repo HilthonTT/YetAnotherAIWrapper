@@ -5,7 +5,7 @@ using Yaaw.API.DTOs.Messages;
 using Yaaw.API.Entities;
 using System.Runtime.CompilerServices;
 
-namespace Yaaw.API.Services;
+namespace Yaaw.API.Services.AI;
 
 internal sealed class ChatStreamingCoordinator(
     IChatClient chatClient,

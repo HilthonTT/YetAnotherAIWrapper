@@ -1,12 +1,20 @@
-﻿using CommunityToolkit.Aspire.OllamaSharp;
+﻿using System.Text;
+using CommunityToolkit.Aspire.OllamaSharp;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.AI;
+using Microsoft.IdentityModel.Tokens;
 using System.Runtime.CompilerServices;
+using Yaaw.API.Database;
 using Yaaw.API.DTOs.Conversations;
 using Yaaw.API.Entities;
 using Yaaw.API.Extensions;
 using Yaaw.API.Middleware;
 using Yaaw.API.Services;
+using Yaaw.API.Services.AI;
+using Yaaw.API.Services.Auth;
+using Yaaw.API.Services.Caching;
 using Yaaw.API.Services.Sorting;
 using Yaaw.API.Settings;
 
@@ -48,6 +56,69 @@ public static class DependencyInjection
         return services;
     }
 
+    public static IServiceCollection AddAuthServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        JwtOptions jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+            ?? throw new InvalidOperationException("JWT configuration is missing.");
+
+        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+
+        services.AddIdentityCore<IdentityUser>(options =>
+            {
+                options.Password.RequireDigit = true;
+                options.Password.RequireLowercase = true;
+                options.Password.RequireUppercase = true;
+                options.Password.RequireNonAlphanumeric = true;
+                options.Password.RequiredLength = 8;
+                options.User.RequireUniqueEmail = true;
+            })
+            .AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<AppDbContext>();
+
+        services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtOptions.Issuer,
+                    ValidAudience = jwtOptions.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
+                    ClockSkew = TimeSpan.Zero,
+                };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        string? accessToken = context.Request.Query["access_token"];
+
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            context.HttpContext.Request.Path.StartsWithSegments("/api/chat/stream"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    },
+                };
+            });
+
+        services.AddAuthorization();
+
+        services.AddScoped<TokenService>();
+        services.AddScoped<CurrentUserService>();
+
+        return services;
+    }
+
     public static IServiceCollection AddApiServices(this IServiceCollection services)
     {
         services.AddValidatorsFromAssemblyContaining<Program>();
@@ -69,6 +140,9 @@ public static class DependencyInjection
 
         services.AddSingleton<ISortMappingDefinition, SortMappingDefinition<Conversation, ConversationDto>>(
             _ => ConversationMappings.SortMappings);
+
+        services.AddSingleton<ICacheKeyManager, CacheKeyManager>();
+        services.AddScoped<IRedisCacheService, RedisCacheService>();
 
         return services;
     }

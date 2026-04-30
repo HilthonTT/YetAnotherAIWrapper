@@ -1,0 +1,148 @@
+@page "/register"
+@inject AuthApiService AuthApi
+@inject JwtAuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<div class="flex items-center justify-center min-h-screen bg-surface-950">
+    <div class="w-full max-w-sm mx-4">
+        <div class="bg-surface-900 border border-surface-700/50 rounded-2xl p-8 space-y-6 animate-fade-in">
+            <div class="text-center space-y-2">
+                <h1 class="text-2xl font-semibold text-accent tracking-tight">Yaaw</h1>
+                <p class="text-sm text-surface-400">Create your account</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">
+                    @_error
+                </div>
+            }
+
+            <EditForm Model="_model" OnValidSubmit="HandleRegister" FormName="register">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-surface-400 mb-1.5">Name</label>
+                        <input type="text"
+                               @bind="_model.Name"
+                               placeholder="Your name"
+                               disabled="@_loading"
+                               class="w-full bg-surface-950 border border-surface-700/50 rounded-xl text-sm text-surface-100
+                                      placeholder-surface-500 px-4 py-2.5 focus:outline-none focus:border-accent/40
+                                      transition-colors duration-200 disabled:opacity-50" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-surface-400 mb-1.5">Email</label>
+                        <input type="email"
+                               @bind="_model.Email"
+                               placeholder="you@example.com"
+                               disabled="@_loading"
+                               class="w-full bg-surface-950 border border-surface-700/50 rounded-xl text-sm text-surface-100
+                                      placeholder-surface-500 px-4 py-2.5 focus:outline-none focus:border-accent/40
+                                      transition-colors duration-200 disabled:opacity-50" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-surface-400 mb-1.5">Password</label>
+                        <input type="password"
+                               @bind="_model.Password"
+                               placeholder="At least 8 characters"
+                               disabled="@_loading"
+                               class="w-full bg-surface-950 border border-surface-700/50 rounded-xl text-sm text-surface-100
+                                      placeholder-surface-500 px-4 py-2.5 focus:outline-none focus:border-accent/40
+                                      transition-colors duration-200 disabled:opacity-50" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-surface-400 mb-1.5">Confirm Password</label>
+                        <input type="password"
+                               @bind="_model.ConfirmPassword"
+                               placeholder="Repeat your password"
+                               disabled="@_loading"
+                               class="w-full bg-surface-950 border border-surface-700/50 rounded-xl text-sm text-surface-100
+                                      placeholder-surface-500 px-4 py-2.5 focus:outline-none focus:border-accent/40
+                                      transition-colors duration-200 disabled:opacity-50" />
+                    </div>
+                    <button type="submit"
+                            disabled="@_loading"
+                            class="w-full py-2.5 rounded-xl bg-accent text-surface-950 font-medium text-sm
+                                   hover:bg-accent-dim disabled:opacity-50 disabled:cursor-not-allowed
+                                   transition-all duration-200">
+                        @if (_loading)
+                        {
+                            <span>Creating account...</span>
+                        }
+                        else
+                        {
+                            <span>Create account</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+
+            <p class="text-center text-xs text-surface-500">
+                Already have an account?
+                <a href="/login" class="text-accent hover:text-accent-dim transition-colors">Sign in</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterFormModel _model = new();
+    private string? _error;
+    private bool _loading;
+
+    private async Task HandleRegister()
+    {
+        _error = null;
+
+        if (_model.Password != _model.ConfirmPassword)
+        {
+            _error = "Passwords do not match.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Name) || string.IsNullOrWhiteSpace(_model.Email) ||
+            string.IsNullOrWhiteSpace(_model.Password))
+        {
+            _error = "All fields are required.";
+            return;
+        }
+
+        _loading = true;
+
+        try
+        {
+            var request = new RegisterRequest(_model.Email, _model.Name, _model.Password, _model.ConfirmPassword);
+            var response = await AuthApi.RegisterAsync(request);
+
+            if (response is not null)
+            {
+                await AuthState.LoginAsync(response);
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                _error = "Registration failed. Please try again.";
+            }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            _error = "An account with this email already exists.";
+        }
+        catch (Exception)
+        {
+            _error = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private sealed class RegisterFormModel
+    {
+        public string Name { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

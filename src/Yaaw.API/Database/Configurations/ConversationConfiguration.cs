@@ -13,6 +13,14 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
         builder.Property(c => c.Id).HasMaxLength(500);
         builder.Property(c => c.Name).HasMaxLength(512);
 
+        builder.Property(c => c.UserId).HasMaxLength(500);
+        builder.HasIndex(c => c.UserId);
+
+        builder.HasOne(c => c.User)
+               .WithMany()
+               .HasForeignKey(c => c.UserId)
+               .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasMany(c => c.Messages)
                .WithOne()
                .HasForeignKey(m => m.ConversationId)

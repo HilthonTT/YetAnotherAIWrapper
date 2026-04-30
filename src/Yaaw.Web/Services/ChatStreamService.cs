@@ -8,9 +8,12 @@ public sealed class ChatStreamService : IAsyncDisposable
 {
     private HubConnection? _connection;
     private readonly string _hubUrl;
+    private readonly TokenStorageService _tokenStorage;
 
-    public ChatStreamService(IConfiguration configuration)
+    public ChatStreamService(IConfiguration configuration, TokenStorageService tokenStorage)
     {
+        _tokenStorage = tokenStorage;
+
         // Aspire injects project URLs under this key pattern.
         string? baseUrl = configuration["services:yaaw-api:https:0"]
             ?? configuration["services:yaaw-api:http:0"]
@@ -33,7 +36,10 @@ public sealed class ChatStreamService : IAsyncDisposable
         }
 
         _connection = new HubConnectionBuilder()
-            .WithUrl(_hubUrl)
+            .WithUrl(_hubUrl, options =>
+            {
+                options.AccessTokenProvider = async () => await _tokenStorage.GetTokenAsync();
+            })
             .WithAutomaticReconnect()
             .Build();
 

@@ -7,7 +7,10 @@ using Yaaw.API.DTOs.Conversations;
 using Yaaw.API.DTOs.Messages;
 using Yaaw.API.Entities;
 using Yaaw.API.Hubs;
+using Yaaw.API.Middleware;
 using Yaaw.API.Services;
+using Yaaw.API.Services.AI;
+using Yaaw.API.Services.Auth;
 using Yaaw.API.Services.Sorting;
 
 namespace Yaaw.API.Endpoints;
@@ -16,7 +19,8 @@ internal static class ChatEndpoints
 {
     public static WebApplication MapChatApi(this WebApplication app)
     {
-        RouteGroupBuilder group = app.MapGroup("/api/chat");
+        RouteGroupBuilder group = app.MapGroup("/api/chat")
+            .RequireAuthorization();
 
         group.MapHub<ChatHub>("/stream", o => o.AllowStatefulReconnects = true);
 
@@ -25,7 +29,8 @@ internal static class ChatEndpoints
          .WithSummary("List conversations")
          .WithDescription("Returns all conversations with optional sorting and field selection.")
          .Produces<CollectionResponse<ConversationDto>>()
-         .ProducesProblem(StatusCodes.Status400BadRequest);
+         .ProducesProblem(StatusCodes.Status400BadRequest)
+         .AddEndpointFilter<ETagCachingFilter>();
 
         group.MapGet("/{id:guid}", GetConversation)
             .WithName(nameof(GetConversation))
@@ -33,14 +38,16 @@ internal static class ChatEndpoints
             .WithDescription("Returns a single conversation by ID, including its messages.")
             .Produces<ConversationDto>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .AddEndpointFilter<ETagCachingFilter>();
 
         group.MapPost("/", CreateConversation)
             .WithName(nameof(CreateConversation))
             .WithSummary("Create conversation")
             .WithDescription("Creates a new empty conversation.")
             .Produces<ConversationDto>(StatusCodes.Status201Created)
-            .ProducesValidationProblem();
+            .ProducesValidationProblem()
+            .AddEndpointFilter<CacheInvalidationFilter>();
 
         group.MapPost("/{id:guid}", SendPrompt)
             .WithName(nameof(SendPrompt))
@@ -55,7 +62,8 @@ internal static class ChatEndpoints
             .WithDescription("Updates the display name of an existing conversation.")
             .Produces<ConversationDto>()
             .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .AddEndpointFilter<CacheInvalidationFilter>();
 
         group.MapPut("/{id:guid}/cancel", CancelStream)
             .WithName(nameof(CancelStream))
@@ -68,7 +76,8 @@ internal static class ChatEndpoints
             .WithSummary("Delete conversation")
             .WithDescription("Permanently deletes a conversation and all its messages.")
             .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .AddEndpointFilter<CacheInvalidationFilter>();
 
         return app;
     }
@@ -79,8 +88,11 @@ internal static class ChatEndpoints
         LinkService linkService,
         SortMappingProvider sortMappingProvider,
         DataShapingService dataShapingService,
+        CurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
+        string userId = currentUser.GetUserId();
+
         SortMapping[] sortMappings = sortMappingProvider
             .GetMappings<Conversation, ConversationDto>();
 
@@ -101,6 +113,7 @@ internal static class ChatEndpoints
         string? search = query.Search?.Trim().ToLower();
 
         List<ConversationDto> conversations = await dbContext.Conversations
+            .Where(c => c.UserId == userId)
             .Where(c => search == null || c.Name.ToLower().Contains(search))
             .Include(c => c.Messages)
             .ApplySort(query.Sort, sortMappings, defaultOrderBy: nameof(Conversation.Id))
@@ -126,9 +139,12 @@ internal static class ChatEndpoints
         AppDbContext dbContext,
         LinkService linkService,
         DataShapingService dataShapingService,
+        CurrentUserService currentUser,
         string? fields,
         CancellationToken cancellationToken)
     {
+        string userId = currentUser.GetUserId();
+
         if (!dataShapingService.Validate<ConversationDto>(fields))
         {
             return Results.Problem(
@@ -138,7 +154,7 @@ internal static class ChatEndpoints
 
         Conversation? conversation = await dbContext.Conversations
             .Include(c => c.Messages)
-            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
 
         if (conversation is null)
         {
@@ -157,15 +173,19 @@ internal static class ChatEndpoints
         NewConversationDto newConversationDto,
         AppDbContext dbContext,
         LinkService linkService,
+        CurrentUserService currentUser,
         IValidator<NewConversationDto> validator,
         CancellationToken cancellationToken)
     {
         await validator.ValidateAndThrowAsync(newConversationDto, cancellationToken);
 
+        string userId = currentUser.GetUserId();
+
         var conversation = new Conversation
         {
             Id = Guid.CreateVersion7(),
             Name = newConversationDto.Name,
+            UserId = userId,
             Messages = [],
         };
 
@@ -183,10 +203,22 @@ internal static class ChatEndpoints
         Guid id,
         PromptDto promptDto,
         ChatStreamingCoordinator streamingCoordinator,
+        AppDbContext dbContext,
+        CurrentUserService currentUser,
         IValidator<PromptDto> validator,
         CancellationToken cancellationToken)
     {
         await validator.ValidateAndThrowAsync(promptDto, cancellationToken);
+
+        string userId = currentUser.GetUserId();
+
+        bool owns = await dbContext.Conversations
+            .AnyAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
+
+        if (!owns)
+        {
+            return Results.NotFound();
+        }
 
         await streamingCoordinator.AddStreamingMessage(id, promptDto.Text);
 
@@ -198,13 +230,16 @@ internal static class ChatEndpoints
         RenameConversationDto renameDto,
         AppDbContext dbContext,
         LinkService linkService,
+        CurrentUserService currentUser,
         IValidator<RenameConversationDto> validator,
         CancellationToken cancellationToken)
     {
         await validator.ValidateAndThrowAsync(renameDto, cancellationToken);
 
+        string userId = currentUser.GetUserId();
+
         Conversation? conversation = await dbContext.Conversations
-            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
 
         if (conversation is null)
         {
@@ -221,8 +256,21 @@ internal static class ChatEndpoints
 
     private static async Task<IResult> CancelStream(
         Guid id,
-        RedisCancellationManager cancellationManager)
+        AppDbContext dbContext,
+        CurrentUserService currentUser,
+        RedisCancellationManager cancellationManager,
+        CancellationToken cancellationToken)
     {
+        string userId = currentUser.GetUserId();
+
+        bool owns = await dbContext.Conversations
+            .AnyAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
+
+        if (!owns)
+        {
+            return Results.NotFound();
+        }
+
         await cancellationManager.CancelAsync(id);
         return Results.Ok();
     }
@@ -230,10 +278,13 @@ internal static class ChatEndpoints
     private static async Task<IResult> DeleteConversation(
         Guid id,
         AppDbContext dbContext,
+        CurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
+        string userId = currentUser.GetUserId();
+
         int deleted = await dbContext.Conversations
-            .Where(c => c.Id == id)
+            .Where(c => c.Id == id && c.UserId == userId)
             .ExecuteDeleteAsync(cancellationToken);
 
         return deleted > 0

@@ -79,11 +79,11 @@
     </script>
     <script src="/js/chat.js"></script>
 
-    <HeadOutlet @rendermode="InteractiveServer" />
+    <HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" />
 </head>
 
 <body class="h-full bg-surface text-surface-100 font-sans antialiased">
-    <Routes @rendermode="InteractiveServer"/>
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>

@@ -1,4 +1,11 @@
-﻿window.scrollToBottom = (element) => {
+﻿// Auth token storage (localStorage persists across refreshes and tabs)
+window.authStorage = {
+    get: (key) => localStorage.getItem(key),
+    set: (key, value) => localStorage.setItem(key, value),
+    remove: (key) => localStorage.removeItem(key),
+};
+
+window.scrollToBottom = (element) => {
     if (element) {
         element.scrollTop = element.scrollHeight;
     }

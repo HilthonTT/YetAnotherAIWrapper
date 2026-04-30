@@ -1,7 +1,7 @@
 ﻿using StackExchange.Redis;
 using System.Collections.Concurrent;
 
-namespace Yaaw.API.Services;
+namespace Yaaw.API.Services.AI;
 
 internal sealed class RedisCancellationManager : IAsyncDisposable
 {

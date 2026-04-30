@@ -1,6 +1,6 @@
 ﻿using StackExchange.Redis;
 
-namespace Yaaw.API.Services;
+namespace Yaaw.API.Services.AI;
 
 internal static class RedisKeys
 {

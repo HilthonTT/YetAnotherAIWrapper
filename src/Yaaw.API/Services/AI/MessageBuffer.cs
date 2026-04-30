@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Yaaw.API.DTOs.Messages;
 
-namespace Yaaw.API.Services;
+namespace Yaaw.API.Services.AI;
 
 internal sealed class MessageBuffer : IAsyncDisposable
 {

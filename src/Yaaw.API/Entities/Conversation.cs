@@ -6,5 +6,9 @@ public sealed class Conversation
 
     public required string Name { get; set; }
 
+    public required string UserId { get; set; }
+
+    public User? User { get; set; }
+
     public required List<ConversationMessage> Messages { get; set; } = [];
 }

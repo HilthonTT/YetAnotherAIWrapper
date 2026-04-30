@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using Yaaw.API.DTOs.Messages;
-using Yaaw.API.Services;
 using System.Runtime.CompilerServices;
+using Yaaw.API.Services.AI;
 
 namespace Yaaw.API.Hubs;
 
+[Authorize]
 internal sealed class ChatHub : Hub
 {
     public async IAsyncEnumerable<ClientMessageFragmentDto> Stream(

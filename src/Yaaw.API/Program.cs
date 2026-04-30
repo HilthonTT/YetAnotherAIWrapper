@@ -15,6 +15,7 @@ builder.AddChatClient("llm");
 builder.AddRedisClient("cache");
 
 builder.Services
+    .AddAuthServices(builder.Configuration)
     .AddApiServices()
     .AddRateLimiting(builder.Configuration)
     .AddErrorHandling();
@@ -41,6 +42,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.MapAuthApi();
 app.MapChatApi();
 
 app.UseHttpsRedirection();
@@ -48,6 +50,9 @@ app.UseHttpsRedirection();
 app.UseExceptionHandler();
 
 app.UseCors(CorsOptions.PolicyName);
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseRedisRateLimiting<SlidingWindowRateLimiter>();
 

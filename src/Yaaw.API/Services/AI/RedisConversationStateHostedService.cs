@@ -1,4 +1,4 @@
-﻿namespace Yaaw.API.Services;
+﻿namespace Yaaw.API.Services.AI;
 
 internal sealed class RedisConversationStateHostedService(RedisConversationState state) : IHostedService
 {

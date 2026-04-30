@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Yaaw.API.DTOs.Messages;
 
-namespace Yaaw.API.Services;
+namespace Yaaw.API.Services.AI;
 
 internal sealed class RedisConversationState : IAsyncDisposable
 {
