@@ -40,9 +40,11 @@ var api = builder.AddProject<Projects.Yaaw_API>("yaaw-api")
     .WithReference(cache)
     .WaitFor(cache);
 
-builder.AddProject<Projects.Yaaw_Web>("yaaw-web")
+builder.AddViteApp("yaaw-web", "../Yaaw.Web")
+    .WithPnpm()
     .WithReference(api)
     .WaitFor(api)
+    .WithEnvironment("API_URL", api.GetEndpoint("https"))
     .WithExternalHttpEndpoints();
 
 await builder.Build().RunAsync();

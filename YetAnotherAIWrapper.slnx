@@ -3,6 +3,5 @@
     <Project Path="src/Yaaw.API/Yaaw.API.csproj" />
     <Project Path="src/Yaaw.AppHost/Yaaw.AppHost.csproj" />
     <Project Path="src/Yaaw.ServiceDefaults/Yaaw.ServiceDefaults.csproj" />
-    <Project Path="src/Yaaw.Web/Yaaw.Web.csproj" Id="b8a3c728-b391-4710-8eef-029d88d97657" />
   </Folder>
 </Solution>

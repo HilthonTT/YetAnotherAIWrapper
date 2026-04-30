@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Dynamic;
 using System.Reflection;
+using System.Text.Json;
 using Yaaw.API.DTOs.Common;
 
 namespace Yaaw.API.Services;
@@ -81,7 +82,8 @@ internal sealed class DataShapingService
 
         foreach (PropertyInfo property in properties)
         {
-            shapedObject[property.Name] = property.GetValue(entity);
+            string key = JsonNamingPolicy.CamelCase.ConvertName(property.Name);
+            shapedObject[key] = property.GetValue(entity);
         }
 
         return (ExpandoObject)shapedObject;

@@ -14,7 +14,7 @@ internal sealed class CacheInvalidationFilter(IRedisCacheService cacheService) :
 
         if (result is IStatusCodeHttpResult { StatusCode: >= 200 and < 300 })
         {
-            string? userId = context.HttpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            string? userId = context.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (!string.IsNullOrEmpty(userId))
             {
