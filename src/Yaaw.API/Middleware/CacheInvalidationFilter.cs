@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Yaaw.API.Services.Caching;
+using Yaaw.Application.Interfaces;
 
 namespace Yaaw.API.Middleware;
 

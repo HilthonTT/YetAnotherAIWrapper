@@ -45,6 +45,11 @@ export function ChatPage() {
   const renameMutation = useRenameConversation();
   const deleteMutation = useDeleteConversation();
 
+  // Clear messages immediately when switching conversations
+  useEffect(() => {
+    setMessages([]);
+  }, [activeId]);
+
   // Load conversation messages when selected
   useEffect(() => {
     if (activeConversation && !isStreamingRef.current) {

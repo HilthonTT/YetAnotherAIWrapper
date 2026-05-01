@@ -1,17 +1,16 @@
-﻿using FluentValidation;
-using Microsoft.EntityFrameworkCore;
 using System.Dynamic;
-using Yaaw.API.Database;
-using Yaaw.API.DTOs.Common;
-using Yaaw.API.DTOs.Conversations;
-using Yaaw.API.DTOs.Messages;
-using Yaaw.API.Entities;
+using MediatR;
+using Yaaw.Application.Conversations.Commands;
+using Yaaw.Application.Conversations.Queries;
+using Yaaw.Application.DTOs.Common;
+using Yaaw.Application.DTOs.Conversations;
+using Yaaw.Application.Interfaces;
+using Yaaw.Application.Services;
+using Yaaw.Application.Sorting;
 using Yaaw.API.Hubs;
 using Yaaw.API.Middleware;
 using Yaaw.API.Services;
-using Yaaw.API.Services.AI;
-using Yaaw.API.Services.Auth;
-using Yaaw.API.Services.Sorting;
+using Yaaw.Domain.Entities;
 
 namespace Yaaw.API.Endpoints;
 
@@ -84,17 +83,14 @@ internal static class ChatEndpoints
 
     private static async Task<IResult> GetConversations(
         [AsParameters] ConversationQueryParameters query,
-        AppDbContext dbContext,
+        ISender mediator,
         LinkService linkService,
         SortMappingProvider sortMappingProvider,
         DataShapingService dataShapingService,
-        CurrentUserService currentUser,
+        ICurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
         string userId = currentUser.GetUserId();
-
-        SortMapping[] sortMappings = sortMappingProvider
-            .GetMappings<Conversation, ConversationDto>();
 
         if (!sortMappingProvider.ValidateMappings<Conversation, ConversationDto>(query.Sort))
         {
@@ -110,15 +106,8 @@ internal static class ChatEndpoints
                 detail: $"Invalid field(s) in '{query.Fields}'.");
         }
 
-        string? search = query.Search?.Trim().ToLower();
-
-        List<ConversationDto> conversations = await dbContext.Conversations
-            .Where(c => c.UserId == userId)
-            .Where(c => search == null || c.Name.ToLower().Contains(search))
-            .Include(c => c.Messages)
-            .ApplySort(query.Sort, sortMappings, defaultOrderBy: nameof(Conversation.Id))
-            .Select(c => c.ToDto())
-            .ToListAsync(cancellationToken);
+        List<ConversationDto> conversations = await mediator.Send(
+            new GetConversationsQuery(userId, query.Search, query.Sort), cancellationToken);
 
         List<ExpandoObject> shaped = dataShapingService.ShapeCollectionData(
             conversations,
@@ -136,10 +125,10 @@ internal static class ChatEndpoints
 
     private static async Task<IResult> GetConversation(
         Guid id,
-        AppDbContext dbContext,
+        ISender mediator,
         LinkService linkService,
         DataShapingService dataShapingService,
-        CurrentUserService currentUser,
+        ICurrentUserService currentUser,
         string? fields,
         CancellationToken cancellationToken)
     {
@@ -152,18 +141,15 @@ internal static class ChatEndpoints
                 detail: $"Invalid field(s) in '{fields}'.");
         }
 
-        Conversation? conversation = await dbContext.Conversations
-            .Include(c => c.Messages)
-            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
+        ConversationDto? dto = await mediator.Send(
+            new GetConversationQuery(id, userId), cancellationToken);
 
-        if (conversation is null)
+        if (dto is null)
         {
             return Results.NotFound();
         }
 
-        ConversationDto dto = conversation.ToDto();
         ExpandoObject shaped = dataShapingService.ShapeData(dto, fields);
-
         ((IDictionary<string, object?>)shaped)["links"] = CreateConversationLinks(linkService, id);
 
         return Results.Ok(shaped);
@@ -171,125 +157,80 @@ internal static class ChatEndpoints
 
     private static async Task<IResult> CreateConversation(
         NewConversationDto newConversationDto,
-        AppDbContext dbContext,
+        ISender mediator,
         LinkService linkService,
-        CurrentUserService currentUser,
-        IValidator<NewConversationDto> validator,
+        ICurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
-        await validator.ValidateAndThrowAsync(newConversationDto, cancellationToken);
-
         string userId = currentUser.GetUserId();
 
-        var conversation = new Conversation
-        {
-            Id = Guid.CreateVersion7(),
-            Name = newConversationDto.Name,
-            UserId = userId,
-            Messages = [],
-        };
-
-        await dbContext.Conversations.AddAsync(conversation, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        ConversationDto dto = conversation.ToDto();
+        ConversationDto dto = await mediator.Send(
+            new CreateConversationCommand(newConversationDto.Name, userId), cancellationToken);
 
         return Results.Created(
-            linkService.Create(nameof(GetConversation), "self", HttpMethods.Get, new { id = conversation.Id }).Href,
+            linkService.Create(nameof(GetConversation), "self", HttpMethods.Get, new { id = dto.Id }).Href,
             dto);
     }
 
     private static async Task<IResult> SendPrompt(
         Guid id,
-        PromptDto promptDto,
-        ChatStreamingCoordinator streamingCoordinator,
-        AppDbContext dbContext,
-        CurrentUserService currentUser,
-        IValidator<PromptDto> validator,
+        Application.DTOs.Messages.PromptDto promptDto,
+        ISender mediator,
+        ICurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
-        await validator.ValidateAndThrowAsync(promptDto, cancellationToken);
-
         string userId = currentUser.GetUserId();
 
-        bool owns = await dbContext.Conversations
-            .AnyAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
+        bool result = await mediator.Send(
+            new SendPromptCommand(id, userId, promptDto.Text), cancellationToken);
 
-        if (!owns)
-        {
-            return Results.NotFound();
-        }
-
-        await streamingCoordinator.AddStreamingMessage(id, promptDto.Text);
-
-        return Results.Accepted();
+        return result ? Results.Accepted() : Results.NotFound();
     }
 
     private static async Task<IResult> RenameConversation(
         Guid id,
         RenameConversationDto renameDto,
-        AppDbContext dbContext,
+        ISender mediator,
         LinkService linkService,
-        CurrentUserService currentUser,
-        IValidator<RenameConversationDto> validator,
+        ICurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
-        await validator.ValidateAndThrowAsync(renameDto, cancellationToken);
-
         string userId = currentUser.GetUserId();
 
-        Conversation? conversation = await dbContext.Conversations
-            .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
+        ConversationDto? dto = await mediator.Send(
+            new RenameConversationCommand(id, userId, renameDto.Name), cancellationToken);
 
-        if (conversation is null)
-        {
-            return Results.NotFound();
-        }
-
-        conversation.Name = renameDto.Name;
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        ConversationDto dto = conversation.ToDto();
-
-        return Results.Ok(dto);
+        return dto is null
+            ? Results.NotFound()
+            : Results.Ok(dto);
     }
 
     private static async Task<IResult> CancelStream(
         Guid id,
-        AppDbContext dbContext,
-        CurrentUserService currentUser,
-        RedisCancellationManager cancellationManager,
+        ISender mediator,
+        ICurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
         string userId = currentUser.GetUserId();
 
-        bool owns = await dbContext.Conversations
-            .AnyAsync(c => c.Id == id && c.UserId == userId, cancellationToken);
+        bool result = await mediator.Send(
+            new CancelStreamCommand(id, userId), cancellationToken);
 
-        if (!owns)
-        {
-            return Results.NotFound();
-        }
-
-        await cancellationManager.CancelAsync(id);
-        return Results.Ok();
+        return result ? Results.Ok() : Results.NotFound();
     }
 
     private static async Task<IResult> DeleteConversation(
         Guid id,
-        AppDbContext dbContext,
-        CurrentUserService currentUser,
+        ISender mediator,
+        ICurrentUserService currentUser,
         CancellationToken cancellationToken)
     {
         string userId = currentUser.GetUserId();
 
-        int deleted = await dbContext.Conversations
-            .Where(c => c.Id == id && c.UserId == userId)
-            .ExecuteDeleteAsync(cancellationToken);
+        bool deleted = await mediator.Send(
+            new DeleteConversationCommand(id, userId), cancellationToken);
 
-        return deleted > 0
-            ? Results.NoContent()
-            : Results.NotFound();
+        return deleted ? Results.NoContent() : Results.NotFound();
     }
 
     private static List<LinkDto> CreateConversationLinks(LinkService linkService, Guid id)

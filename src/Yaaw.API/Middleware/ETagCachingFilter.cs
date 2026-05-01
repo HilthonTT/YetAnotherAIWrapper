@@ -2,7 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Yaaw.API.Services.Caching;
+using Yaaw.Application.Interfaces;
 
 namespace Yaaw.API.Middleware;
 

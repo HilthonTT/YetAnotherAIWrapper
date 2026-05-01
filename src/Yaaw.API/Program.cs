@@ -1,21 +1,20 @@
 using Scalar.AspNetCore;
 using Yaaw.API;
-using Yaaw.API.Database;
 using Yaaw.API.Endpoints;
 using Yaaw.API.Middleware.RateLimiting;
-using Yaaw.API.Settings;
+using Yaaw.Application;
+using Yaaw.Infrastructure;
+using Yaaw.Infrastructure.Settings;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.AddNpgsqlDbContext<AppDbContext>("yaaw");
-
+builder.AddInfrastructure();
 builder.AddChatClient("llm");
-builder.AddRedisClient("cache");
 
 builder.Services
-    .AddAuthServices(builder.Configuration)
+    .AddApplication()
     .AddApiServices()
     .AddRateLimiting(builder.Configuration)
     .AddErrorHandling();

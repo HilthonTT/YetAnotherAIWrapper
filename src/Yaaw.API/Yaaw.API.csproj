@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -10,24 +10,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-	<PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.2.4" />
 	<PackageReference Include="Aspire.OpenAI" Version="13.2.4-preview.1.26224.4" />
-	<PackageReference Include="Aspire.StackExchange.Redis" Version="13.2.4" />
     <PackageReference Include="CommunityToolkit.Aspire.OllamaSharp" Version="13.1.1" />
-    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.14.5" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.14.9" />
     <PackageReference Include="Swashbuckle.AspNetCore.ReDoc" Version="10.1.7" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.7" />
-    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Yaaw.ServiceDefaults\Yaaw.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Yaaw.Application\Yaaw.Application.csproj" />
+    <ProjectReference Include="..\Yaaw.Infrastructure\Yaaw.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

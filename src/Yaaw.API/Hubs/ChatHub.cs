@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Yaaw.API.DTOs.Messages;
+using Yaaw.Application.DTOs.Messages;
+using Yaaw.Application.Interfaces;
 using System.Runtime.CompilerServices;
-using Yaaw.API.Services.AI;
 
 namespace Yaaw.API.Hubs;
 
@@ -10,12 +10,12 @@ namespace Yaaw.API.Hubs;
 internal sealed class ChatHub : Hub
 {
     public async IAsyncEnumerable<ClientMessageFragmentDto> Stream(
-        Guid id, 
-        StreamContext context, 
-        ChatStreamingCoordinator coordinator,
+        Guid id,
+        StreamContext context,
+        IChatStreamingCoordinator coordinator,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var message in coordinator.StreamFragments(id, context.LastMessageId, context.LastMessageId, cancellationToken))
+        await foreach (var message in coordinator.StreamFragments(id, context.LastMessageId, context.LastFragmentId, cancellationToken))
         {
             yield return message;
         }

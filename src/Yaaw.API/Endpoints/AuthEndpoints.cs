@@ -1,10 +1,8 @@
-using FluentValidation;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Yaaw.API.Database;
-using Yaaw.API.DTOs.Auth;
-using Yaaw.API.Entities;
-using Yaaw.API.Services.Auth;
+using MediatR;
+using Yaaw.Application.Auth.Commands;
+using Yaaw.Application.Auth.Queries;
+using Yaaw.Application.DTOs.Auth;
+using Yaaw.Application.Interfaces;
 
 namespace Yaaw.API.Endpoints;
 
@@ -49,133 +47,69 @@ internal static class AuthEndpoints
 
     private static async Task<IResult> Register(
         RegisterDto dto,
-        UserManager<IdentityUser> userManager,
-        AppDbContext dbContext,
-        TokenService tokenService,
-        IValidator<RegisterDto> validator,
+        ISender mediator,
         CancellationToken cancellationToken)
     {
-        await validator.ValidateAndThrowAsync(dto, cancellationToken);
+        var result = await mediator.Send(new RegisterCommand(dto.Email, dto.Name, dto.Password), cancellationToken);
 
-        IdentityUser? existingIdentity = await userManager.FindByEmailAsync(dto.Email);
-        if (existingIdentity is not null)
-        {
-            return Results.Problem(
-                statusCode: StatusCodes.Status409Conflict,
-                detail: "A user with this email already exists.");
-        }
-
-        var identityUser = new IdentityUser
-        {
-            UserName = dto.Email,
-            Email = dto.Email,
-        };
-
-        IdentityResult result = await userManager.CreateAsync(identityUser, dto.Password);
         if (!result.Succeeded)
         {
-            return Results.ValidationProblem(
-                result.Errors.ToDictionary(
-                    e => e.Code,
-                    e => new[] { e.Description }));
+            if (result.ValidationErrors is not null)
+            {
+                return Results.ValidationProblem(result.ValidationErrors);
+            }
+
+            return Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                detail: result.ErrorDetail ?? "Registration failed.");
         }
 
-        await userManager.AddToRoleAsync(identityUser, "User");
-
-        var user = new User
-        {
-            Id = User.NewId(),
-            Email = dto.Email,
-            Name = dto.Name,
-            CreatedAtUtc = DateTime.UtcNow,
-            IdentityId = identityUser.Id,
-        };
-
-        await dbContext.Users.AddAsync(user, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        string token = await tokenService.GenerateTokenAsync(identityUser, user);
-
-        return Results.Created(
-            $"/api/auth/profile",
-            new AuthResponseDto(token, user.Id, user.Email, user.Name));
+        return Results.Created("/api/auth/profile", result.Response);
     }
 
     private static async Task<IResult> Login(
         LoginDto dto,
-        UserManager<IdentityUser> userManager,
-        AppDbContext dbContext,
-        TokenService tokenService,
-        IValidator<LoginDto> validator,
+        ISender mediator,
         CancellationToken cancellationToken)
     {
-        await validator.ValidateAndThrowAsync(dto, cancellationToken);
+        var result = await mediator.Send(new LoginCommand(dto.Email, dto.Password), cancellationToken);
 
-        IdentityUser? identityUser = await userManager.FindByEmailAsync(dto.Email);
-        if (identityUser is null || !await userManager.CheckPasswordAsync(identityUser, dto.Password))
+        if (!result.Succeeded)
         {
             return Results.Problem(
                 statusCode: StatusCodes.Status401Unauthorized,
-                detail: "Invalid email or password.");
+                detail: result.ErrorDetail ?? "Authentication failed.");
         }
 
-        User? user = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.IdentityId == identityUser.Id, cancellationToken);
-
-        if (user is null)
-        {
-            return Results.Problem(
-                statusCode: StatusCodes.Status401Unauthorized,
-                detail: "User profile not found.");
-        }
-
-        string token = await tokenService.GenerateTokenAsync(identityUser, user);
-
-        return Results.Ok(new AuthResponseDto(token, user.Id, user.Email, user.Name));
+        return Results.Ok(result.Response);
     }
 
     private static async Task<IResult> GetProfile(
-        CurrentUserService currentUser,
-        UserManager<IdentityUser> userManager,
-        AppDbContext dbContext,
+        ICurrentUserService currentUser,
+        ISender mediator,
         CancellationToken cancellationToken)
     {
         string userId = currentUser.GetUserId();
 
-        User? dbUser = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.IdentityId == userId, cancellationToken);
+        var profile = await mediator.Send(new GetProfileQuery(userId), cancellationToken);
 
-        if (dbUser is null)
-        {
-            return Results.NotFound();
-        }
-
-        return Results.Ok(new UserProfileDto(dbUser.Id, dbUser.Email, dbUser.Name, dbUser.CreatedAtUtc));
+        return profile is null
+            ? Results.NotFound()
+            : Results.Ok(profile);
     }
 
     private static async Task<IResult> UpdateProfile(
         UpdateProfileDto dto,
-        CurrentUserService currentUser,
-        AppDbContext dbContext,
-        IValidator<UpdateProfileDto> validator,
+        ICurrentUserService currentUser,
+        ISender mediator,
         CancellationToken cancellationToken)
     {
-        await validator.ValidateAndThrowAsync(dto, cancellationToken);
-
         string userId = currentUser.GetUserId();
 
-        User? user = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        var profile = await mediator.Send(new UpdateProfileCommand(userId, dto.Name), cancellationToken);
 
-        if (user is null)
-        {
-            return Results.NotFound();
-        }
-
-        user.Name = dto.Name;
-        user.UpdatedAtUtc = DateTime.UtcNow;
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Results.Ok(new UserProfileDto(user.Id, user.Email, user.Name, user.CreatedAtUtc));
+        return profile is null
+            ? Results.NotFound()
+            : Results.Ok(profile);
     }
 }

@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Yaaw.Domain/Yaaw.Domain.csproj" />
+    <Project Path="src/Yaaw.Application/Yaaw.Application.csproj" />
+    <Project Path="src/Yaaw.Infrastructure/Yaaw.Infrastructure.csproj" />
     <Project Path="src/Yaaw.API/Yaaw.API.csproj" />
     <Project Path="src/Yaaw.AppHost/Yaaw.AppHost.csproj" />
     <Project Path="src/Yaaw.ServiceDefaults/Yaaw.ServiceDefaults.csproj" />
